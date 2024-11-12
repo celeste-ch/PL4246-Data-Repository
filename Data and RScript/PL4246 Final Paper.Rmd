@@ -1,0 +1,190 @@
+---
+title: "PPL4246 Final Assignment"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-10-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Packages needed
+library(bootnet)
+library(tidyverse)
+library(igraph)
+library(qgraph)
+library(ggplot2)
+```
+
+## Participant Data
+```{r}
+# Read csv file
+stars.data <- read.csv('stars-data_99.csv', header = TRUE)
+
+# Relevant columns (items 1 to 51)
+stars.data1 <- stars.data |> select(item_1:item_51)
+
+# Calculate the sum of STARS scores for each student (row)
+stars.data1$total_score <- rowSums(stars.data1)
+
+# Calculate the average STARS score across all students
+average_score <- mean(stars.data1$total_score, na.rm = TRUE)
+median_score <- median(stars.data1$total_score, na.rm = TRUE)
+# Calculate standard deviation of the total STARS scores
+sd_total_score <- sd(stars.data1$total_score, na.rm = TRUE) 
+
+average_score
+median_score
+sd_total_score
+```
+
+## Create network
+```{r}
+# Relevant columns (items 1 to 51)
+stars.data2 <- stars.data |> select(item_1:item_51)
+
+# Estimate network using partial correlations and apply significance threshold
+stars.matrix <- estimateNetwork(stars.data2, default = "pcor", threshold = 'sig')
+
+# Extract adjacency matrix
+stars_adj_mat <- stars.matrix$graph
+
+# Create igraph object from adjacency matrix
+stars_adj_mat <- abs(stars.matrix$graph) 
+stars_network <- graph_from_adjacency_matrix(stars_adj_mat, mode = "undirected", weighted = TRUE, diag = FALSE)
+
+# Rename nodes to numbers
+V(stars_network)$name <- as.character(seq_along(V(stars_network)))
+
+# Adjust edge width by correlation coefficient, scaled for better visibility
+E(stars_network)$width <- E(stars_network)$weight * 10
+
+# Color edges based on correlation threshold (red for strong, blue for weaker correlations)
+E(stars_network)$color <- ifelse(E(stars_network)$weight > 0.5, "red", "blue") 
+
+# Plot network
+layout <- layout_with_fr(stars_network)
+par(mar = c(0.2, 0.2, 0.2, 0.2)) #set margins
+plot(stars_network, edge.width = E(stars_network)$width, edge.color = E(stars_network)$color, vertex.size = 17, layout = layout)
+summary(stars_network)
+```
+
+## Basic Info
+```{r}
+# Number of nodes
+num_nodes <- vcount(stars_network)
+
+# Number of edges
+num_edges <- ecount(stars_network)
+
+# Network density
+network_density <- edge_density(stars_network)
+
+# Network diameter
+network_diameter <- diameter(stars_network)
+
+# Network degree distribution
+degree_distribution <- degree(stars_network)
+
+# Print basic metrics
+cat("Number of nodes:", num_nodes, "\n")
+cat("Number of edges:", num_edges, "\n")
+cat("Network density:", network_density, "\n")
+cat("Network diameter:", network_diameter, "\n")
+```
+
+## Centrality Measures
+```{r}
+# Degree Centrality
+degree_centrality <- degree(stars_network)
+
+# Sort nodes by degree
+node_degree_sorted <- sort(degree_centrality, decreasing = TRUE)
+cat("Nodes with highest degree:\n")
+head(node_degree_sorted)
+
+# Betweenness Centrality
+betweenness_centrality <- igraph::betweenness(stars_network, normalized = TRUE)
+
+# Sort nodes by betweenness centrality
+betweenness_sorted <- sort(betweenness_centrality, decreasing = TRUE)
+cat("Nodes with highest betweenness centrality:\n")
+head(betweenness_sorted)
+
+# Closeness Centrality
+closeness_centrality <- closeness(stars_network, normalized = TRUE)
+
+# Sort nodes by closeness centrality
+closeness_sorted <- sort(closeness_centrality, decreasing = TRUE)
+cat("Nodes with highest closeness centrality:\n")
+head(closeness_sorted)
+
+# Strength
+strength_centrality <- strength(stars_network)
+
+# Sort nodes by strength
+strength_sorted <- sort(strength_centrality, decreasing = TRUE)
+cat("Nodes with highest strength:\n")
+head(strength_sorted)
+
+
+
+
+```
+
+## Community Detection (Louvain Method)
+```{r}
+# Louvain Method for Community Detection
+louvain_communities <- cluster_louvain(stars_network)
+cat("Louvain Community Detection:\n")
+data.frame(node = V(stars_network)$name, community = louvain_communities$membership) |> head(10)
+table(louvain_communities$membership)
+membership(louvain_communities)
+modularity(louvain_communities)
+
+# Plot with community colors
+par(mar = c(0.2, 0.2, 0.2, 0.2)) #set margins
+plot(stars_network, vertex.color = membership(louvain_communities))
+
+```
+
+## Key Player Problem
+```{r}
+library(keyplayer)
+
+# KPP-Pos
+set.seed(1)
+
+kpp_pos <- kpset(stars_adj_mat, 
+                   size = 3, # Number of key players
+                   type = "diffusion", 
+                   method = "union", 
+                   T = 1, # Diffusion steps
+                   binary = TRUE) # Treat edges as unweighted
+# Cohesion score
+kpp_pos$centrality / gorder(stars_network) # Normalized
+
+# Positive Key Player Set
+V(stars_network)$name[kpp_pos$keyplayers]
+
+
+# KPP-Neg
+set.seed(1)
+
+kpp_neg <- kpset(stars_adj_mat, 
+                   size = 3, # Number of key players
+                   type = "fragment", 
+                   method = "min",
+                   binary = F) 
+
+# Fragmentation score
+kpp_neg$centrality 
+
+# Negative Key Player Set
+V(stars_network)$name[kpp_neg$keyplayers] 
+
+```
+

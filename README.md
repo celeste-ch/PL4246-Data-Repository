@@ -13,3 +13,7 @@ There are 2 folders in this repository: 1. [Data and RScript], 2. [Output]
   1. RScript.pdf: The pdf file containing the full knitted RScript generated from PL4246 Final Paper.Rmd. It includes all RCode and output generated.
   2. STARS network.png: A png file of the constructed statistics anxiety network for students enrolled in PL4246, generated using the RScript.
   3. louvain community detection.png: A png file of the statistics anxiety network using the Louvain method, generated using the RScript.
+
+Instructions to Run:
+  1. Download as zip folder
+  2. Open PL4246 Final Paper.Rmd and ensure working directory is set to [Data and RScript]
